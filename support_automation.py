@@ -111,7 +111,7 @@ elif page == "Service Manager":
         
     tab1, tab2 = st.tabs(["cmd","Start/Stop Services"])
     with tab1:
-        result = subprocess.run(service_list, capture_output=True, text=True, timeout=10)
+        result = subprocess.run("cmd", capture_output=True, text=True, timeout=10)
         st.code(result.stdout, language="bash")
     
     with tab2:                     
