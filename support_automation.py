@@ -109,7 +109,7 @@ elif page == "Service Manager":
         # Linux: systemctl status <service>
         cmd = ["systemctl", "status", service]
         
-    tab1, tab2 = st.tabs(["Service List","Start/Stop Services"])
+    tab1, tab2 = st.tabs(["cmd","Start/Stop Services"])
     with tab1:
         result = subprocess.run(service_list, capture_output=True, text=True, timeout=10)
         st.code(result.stdout, language="bash")
