@@ -1,0 +1,6 @@
+streamlit
+psutil
+pandas
+python-dotenv
+supabase
+rich>=14.1.0

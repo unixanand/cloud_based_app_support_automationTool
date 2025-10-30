@@ -1,0 +1,20 @@
+timestamp,level,message
+12:23:01,1,error init
+12:23:01,	3,	error init
+13:23:02,	4,	DATE ERR
+13:23:03,	5,	DATA warning
+13:23:04,	1,	ERROR
+12:23:05,	1,	error in fetch
+12:23:06,	1,	system bug
+12:23:07,	1,	return to main
+12:23:08,	1,	system bug
+12:23:09,	2,	return to main
+12:23:10,	4,	system bug
+12:23:11,	3,	return to main
+12:23:12,	4,	return to main
+12:23:13,	5,	system bug
+12:23:14,	5,	return to main
+12:23:15,	3,	num error
+13:23:16,	3,	return to main
+12:23:17,	4,	system bug
+14:23:18,	1,	return to main	
