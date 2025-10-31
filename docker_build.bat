@@ -1,1 +1,1 @@
-docker build --no-cache -t restaurantapp_st_cloud-app . --progress=plain
+docker build --no-cache -t appsupport_automation_cloud-app . --progress=plain

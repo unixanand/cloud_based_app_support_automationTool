@@ -49,6 +49,7 @@ if st.sidebar.button("Logout"):
     st.stop()
 
 if page == "Health Monitor":
+    st.header("✅ System helth Check")
     col1, col2, col3, col4 = st.columns(4)
     cpu = psutil.cpu_percent()
     with col1: st.metric("CPU %", cpu)
@@ -75,6 +76,7 @@ if page == "Health Monitor":
                 st.error(f"Email Error: {e}")
 
 elif page == "Log Analyzer":
+    st.header("🔍 Log file analysis")
     uploaded_file = st.file_uploader("Upload Log File (CSV/TSV; cols: timestamp, level, message)")
     #pattern = st.text_input("Grep Pattern (e.g., ERROR|FAIL)", value="ERROR")
     if uploaded_file:
@@ -100,26 +102,40 @@ elif page == "Log Analyzer":
                     st.info("No timestamp column for charting.")
 
 elif page == "Service Manager":
+    st.header("📈 🏃 Service Management")
     service = ""
     if platform.system() == "Windows":
-        # Windows equivalent: sc query <service>
-        cmd = ["sc", "query", service]
-        service_list = ["sc", "query"]
+        cmd = ["sc", "query", "type=service", "state=active"]  # Active services
+        env = "win"
     else:
-        # Linux: systemctl status <service>
-        #cmd = ["systemctl", "status", service]
-        cmd = ["systemctl", "status"]
+        cmd = ["systemctl", "list-units", "--type=service", "--state=running"]  # Running services
+        env = "lin"
         
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+    
+    if result.returncode != 0:
+        st.error("Failed to list services—check permissions.")
+    else:
+        st.text_area("Running Services", result.stdout, height=300)
+    
+    
     tab1, tab2 = st.tabs(["Service List","Start/Stop Services"])
     with tab1:
+        st.header("🟢 Running Service")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        st.code(result.stdout, language="bash")
+        #st.code(result.stdout, language="bash")
+        st.write(result.stdout)
     
-    with tab2:                     
+    with tab2:
+            st.header("🔍⚙️ Search Service")
             service = st.text_input("Service Name (e.g., postgresql)")
             if st.button("Status"):
                 try:
-                    #cmd = ["sc", "query", service]
+                    if env == "win" :
+                        cmd = ["sc", "query", service]
+                    else:
+                        cmd = ["systemctl", "status", service]
+                        
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
                     #result = subprocess.run(["systemctl", "status", service], capture_output=True, text=True, timeout=10)
                     st.code(result.stdout, language="bash")
@@ -155,6 +171,7 @@ elif page == "Service Manager":
                     st.rerun()
 
 elif page == "Batch Jobs":
+    st.header("🗓⚙️ Batch Job Monitoring")
     try:
         # Fetch recent jobs
         response = (
@@ -186,6 +203,7 @@ elif page == "Batch Jobs":
         st.error(f"Query Error: {e}")
 
 elif page == "DB Alerts":
+    st.header("⚠️ Monitor Job Failures")
     try:
         # Simplified: Job stats as proxy for DB health (e.g., failure trends)
         recent_fails = False
@@ -242,7 +260,75 @@ elif page == "DB Alerts":
         st.error(f"Alert Error: {e}")
 
 if page == "Batch Manager":
-    st.header("Batch Manager Console")
+    st.header("🖥⏳ Batch Manager Console")
+    tab1, tab2, tab3 = st.tabs(["Batch Overview","View STOP/ON-HOLD","Start/Stop Batch"])
+    with tab1:
+        
+        fetch_bacth_rec = (
+                    supabase.table("batch_master")
+                    .select("*")
+                    .execute()
+                )
+        running_jobs = fetch_bacth_rec.data
+        if (st.button("Show Batch Status", key="batch_mgr")):
+            df = pd.DataFrame(running_jobs)
+            st.dataframe(df)
+
+    with tab2:
+        fetch_bacth_rec = (
+                    supabase.table("batch_master")
+                    .select("*")
+                    .neq("status", "RUNNING")
+                    .execute()
+                )
+        hold_jobs = fetch_bacth_rec.data
+        if (st.button("Show HOLD Jobs")):
+            df = pd.DataFrame(hold_jobs)
+            st.dataframe(df)
+        
+    with tab3:
+        fetch_bacth_rec = (
+                    supabase.table("batch_master")
+                    .select("*")
+                    .neq("status", "RUNNING")
+                    .execute()
+                )
+        job_list = fetch_bacth_rec.data
+        batch_list = pd.DataFrame(job_list)
+        #df = pd.DataFrame(batch_list, columns=['Job_id', 'Job_name', 'Group', 'Frequency','Status'])
+        st.dataframe(batch_list[['job_id','job_name','status']])
+        col1, col2 = st.columns(2)
+        with col1:
+            job_options = batch_list.set_index('job_id')['job_name'].to_dict()
+            selected_job_no = st.selectbox("Choose Job", options=list(job_options.keys()), format_func=lambda x: f"{x}: {job_options[x]}")
+            job_name = job_options[selected_job_no]
+        with col2:
+            action = st.selectbox("Select Option",[' ','RESTART','HOLD','STOP'])
+            if action == "RESTART":
+                db_action = "RUNNING"
+            elif action == "HOLD" :
+                db_action = "ON-HOLD"
+            else:
+                db_action = "STOPPED"
+
+        col1, col2 = st.columns([1.5,0.5])
+        with col1:
+            exec_db = st.button(f"{action}-{job_name}")
+        
+            if exec_db:
+                # Update statement to set status='stop' where job_id='01'
+                update_result = (
+                    supabase.table("batch_master")
+                    .update({"status": db_action})
+                    .eq("job_id", selected_job_no)
+                    .execute()
+                )
+                
+        with col2:
+            if st.button("Refresh Data"):
+                st.rerun()
+
+    
 # Footer
 st.sidebar.markdown("---")
 st.sidebar.info("Dashboard powered by Streamlit + Direct Supabase DB")
