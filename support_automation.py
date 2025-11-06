@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 import smtplib
 from email.mime.text import MIMEText
+import datetime
 from datetime import date, timedelta
 
 load_dotenv()  # Load .env
@@ -38,7 +39,7 @@ st.set_page_config(page_title="ProdOps Dashboard (Supabase Direct)", layout="wid
 st.title("⚙️️ Production Support Automation Dashboard")
 
 # Sidebar navigation
-page = st.sidebar.selectbox("Choose Module", ["Health Monitor", "Log Analyzer", "Service Manager", "Batch Jobs", "DB Alerts", "Batch Manager"])
+page = st.sidebar.selectbox("Choose Module", ["Health Monitor", "Log Analyzer", "Service Manager", "Batch Jobs", "DB Alerts", "Batch Manager", "Extract Failed Jobs"])
 if st.sidebar.button("Refresh"):
     st.session_state.clear()
     st.rerun()
@@ -49,7 +50,7 @@ if st.sidebar.button("Logout"):
     st.stop()
 
 if page == "Health Monitor":
-    st.header("✅ System helth Check")
+    st.header("✅ System Health Check")
     col1, col2, col3, col4 = st.columns(4)
     cpu = psutil.cpu_percent()
     with col1: st.metric("CPU %", cpu)
@@ -261,7 +262,16 @@ elif page == "DB Alerts":
 
 if page == "Batch Manager":
     st.header("🖥⏳ Batch Manager Console")
-    tab1, tab2, tab3 = st.tabs(["Batch Overview","View STOP/ON-HOLD","Start/Stop Batch"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Batch Overview","View STOP/ON-HOLD","Start/Stop Batch", "Long Running Jobs"])
+    status_map = {
+        'RUNNING' : 'RESTART',
+        'ON-HOLD' : 'HOLD',
+        'STOPPED' : 'STOP',
+        'FAILED' : 'NULL'
+        }
+
+    file_name = "Error_data_sheet"
+    options_list = ['RESTART','HOLD','STOP']
     with tab1:
         
         fetch_bacth_rec = (
@@ -290,45 +300,152 @@ if page == "Batch Manager":
         fetch_bacth_rec = (
                     supabase.table("batch_master")
                     .select("*")
-                    .neq("status", "RUNNING")
+                    .neq("status", "PURGED")
                     .execute()
                 )
         job_list = fetch_bacth_rec.data
         batch_list = pd.DataFrame(job_list)
+        batch_list = batch_list.sort_values(by='job_id')
+        
         #df = pd.DataFrame(batch_list, columns=['Job_id', 'Job_name', 'Group', 'Frequency','Status'])
         st.dataframe(batch_list[['job_id','job_name','status']])
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             job_options = batch_list.set_index('job_id')['job_name'].to_dict()
             selected_job_no = st.selectbox("Choose Job", options=list(job_options.keys()), format_func=lambda x: f"{x}: {job_options[x]}")
             job_name = job_options[selected_job_no]
         with col2:
-            action = st.selectbox("Select Option",[' ','RESTART','HOLD','STOP'])
+            curr_status = batch_list[batch_list['job_id'] == selected_job_no]['status'].values[0]
+            st.text_input("Current_Status",value=curr_status)
+            
+            
+            if status_map[curr_status] in options_list:
+                options_list.remove(status_map[curr_status])
+        with col3:
+            action = st.selectbox("Select Option",options_list)
             if action == "RESTART":
                 db_action = "RUNNING"
             elif action == "HOLD" :
                 db_action = "ON-HOLD"
-            else:
+            elif action == "STOP"  :
                 db_action = "STOPPED"
+            else:
+                db_action = ""
+                st.error("Choose valid action!")
 
         col1, col2 = st.columns([1.5,0.5])
         with col1:
+                        
             exec_db = st.button(f"{action}-{job_name}")
         
             if exec_db:
-                # Update statement to set status='stop' where job_id='01'
-                update_result = (
+                response = (
                     supabase.table("batch_master")
-                    .update({"status": db_action})
+                    .select("dependency")
                     .eq("job_id", selected_job_no)
+                    .neq("status", 'null')
                     .execute()
                 )
-                
+                resp_list = pd.DataFrame(response.data)
+                dep_job = resp_list['dependency'].values[0]
+                if dep_job is None:
+                    
+                                
+                    if db_action != curr_status:
+                    
+                        update_result = (
+                            supabase.table("batch_master")
+                            .update({"status": db_action})
+                            .eq("job_id", selected_job_no)
+                            .execute()
+                        )
+                    else:
+                        st.error(f"Job-{selected_job_no}-already in {db_action} state!")
+                else:
+                    response = (
+                        supabase.table("batch_master")
+                        .select("status")
+                        .eq("job_id", dep_job)
+                        .execute()
+                    )
+                    dep_list = pd.DataFrame(response.data)
+                    dep_status = dep_list['status'].values[0]
+                    if db_action == 'RUNNING' and dep_status != 'STOPPED':
+                        st.warning(f"Restart the Parent Job : {dep_job}")
+                    else:
+                        update_result = (
+                            supabase.table("batch_master")
+                            .update({"status": db_action})
+                            .eq("job_id", selected_job_no)
+                            .execute()
+                        )
         with col2:
+            options_list = ['RESTART','HOLD','STOP']
             if st.button("Refresh Data"):
                 st.rerun()
 
-    
+    with tab4:
+        st.header("🐢 Monitor Long running Jobs")
+        now = datetime.datetime.now(datetime.timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)  # Start of today
+        today_end = today_start.replace(hour=23, minute=59, second=59, microsecond=999999)  # End of today
+        one_hour_ago = now - datetime.timedelta(hours=1)
+
+        response = (
+            supabase.table("batch_jobs")
+            .select("*")
+            .gte("start_time", today_start.isoformat())  
+            .lt("start_time", today_end.isoformat())     
+            .lt("start_time", one_hour_ago.isoformat())  
+            .is_("end_time", "null")
+            .eq("status","RUNNING")
+            .order("start_time", desc=False)  
+            .execute()
+    )
+
+        # Handle response
+        data = response.data
+        df_record = pd.DataFrame(data)
+        if not df_record.empty:
+            record = pd.DataFrame(df_record[['job_id','job_name','status']])
+            st.dataframe(record)
+
+            col1, col2, col3, col4 = st.columns(4)
+            job_list = []
+            job_list = record['job_id'].to_list()
+
+            with col1:
+                jobid = st.selectbox("Choose Job", job_list)
+            with col3:
+                db_action = st.button("KILL Selected")
+                if db_action:
+                    supabase.table("batch_jobs").update({"status": "STOPPED"}).eq("job_id", jobid).execute()
+            with col4:
+                set_action = st.button("KILL ALL")
+                for job in job_list:
+                    supabase.table("batch_jobs").update({"status": "STOPPED"}).eq("job_id", job).execute()
+        else:
+            st.success("No Job to report!")
+else:
+        st.header("📊 Extract Failure Jobs")
+        extract = st.button("Extract Report")
+        fetch_failure_rec = (
+                    supabase.table("batch_master")
+                    .select("*")
+                    .eq("status", "FAILED")
+                    .execute()
+                )
+        job_list = fetch_failure_rec.data
+        batch_list = pd.DataFrame(job_list)
+        batch_list = batch_list.sort_values(by='job_id')
+        if extract:
+            if not batch_list.empty:
+                failed_jobs = pd.DataFrame(batch_list[['job_id','job_name','status']])
+                st.dataframe(failed_jobs)
+                file_name = f"Error_data_sheet.xlsx"
+                failed_jobs.to_excel(file_name, index=False)
+                with open(file_name, 'rb') as f:
+                    st.download_button("Download Excel", f.read(), file_name=file_name)
 # Footer
 st.sidebar.markdown("---")
 st.sidebar.info("Dashboard powered by Streamlit + Direct Supabase DB")
