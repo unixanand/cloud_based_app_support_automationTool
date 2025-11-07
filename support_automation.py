@@ -426,7 +426,8 @@ if page == "Batch Manager":
                     supabase.table("batch_jobs").update({"status": "STOPPED"}).eq("job_id", job).execute()
         else:
             st.success("No Job to report!")
-else:
+          
+if page == "Extract Failed Jobs":
         st.header("📊 Extract Failure Jobs")
         extract = st.button("Extract Report")
         fetch_failure_rec = (
