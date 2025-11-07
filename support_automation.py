@@ -20,9 +20,9 @@ SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # Email Config
-EMAIL_FROM = "unixanand2005@gmail.com"
-EMAIL_TO = "unix_anand@outlook.com"
-SMTP_SERVER = "smtp.gmail.com"
+EMAIL_FROM = os.getenv("EMAIL_FROM")
+EMAIL_TO = os.getenv("EMAIL_TO")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = 587
 
 st.markdown("""
