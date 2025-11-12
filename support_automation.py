@@ -11,8 +11,20 @@ import smtplib
 from email.mime.text import MIMEText
 import datetime
 from datetime import date, timedelta
+import boto3
 
 load_dotenv()  # Load .env
+
+ssm = boto3.client('ssm', region_name='ap-south-1')
+ses = boto3.client('ses', region_name='ap-south-1')
+
+
+def get_secret(name, default=None):
+    try:
+        resp = ssm.get_parameter(Name=name, WithDecryption=True)
+        return resp['Parameter']['Value']
+    except Exception:
+        return os.getenv(name, default)
 
 # Supabase Config
 SUPABASE_URL = os.getenv("SUPABASE_URL")

@@ -1,0 +1,9 @@
+FROM python:3.10-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+# Install curl for health check (minimal addition ~5MB)
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+COPY . .
+EXPOSE 8080
+CMD ["streamlit", "run", "support_automation.py", "--server.port", "8080", "--server.address", "0.0.0.0", "--server.enableCORS", "false", "--server.enableXsrfProtection", "false", "--browser.gatherUsageStats", "false"]
