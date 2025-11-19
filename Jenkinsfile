@@ -46,7 +46,14 @@ pipeline {
            // }
        // }
     }
-    
+    stage('Deploy Local') {
+		steps {
+			bat 'docker stop my-app || exit 0'  // Stop if running
+			bat 'docker rm my-app || exit 0'
+			bat 'docker run -d -p 8080:80 --name my-app unix_anand/auto-app:latest'
+			bat 'echo "Deployed to http://localhost:8080"'
+		}
+	}
     post {
         always {
             bat 'docker system prune -f'  // Clean up dangling images
