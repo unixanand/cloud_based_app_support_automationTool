@@ -30,7 +30,7 @@ pipeline {
             steps {
                 bat 'docker stop auto-app || exit 0'  // Stop if running (ignores error if not)
                 bat 'docker rm auto-app || exit 0'    // Remove if exists
-                bat 'docker run -d -p 8081:80 --name my-app unix_anand/auto-app:latest'
+                bat 'docker run -d -p 8081:8501 --name my-app unix_anand/auto-app:latest'
                 bat 'echo "Deployed to http://localhost:8081"'
             }
         }
