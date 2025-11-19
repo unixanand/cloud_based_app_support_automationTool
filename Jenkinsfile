@@ -15,9 +15,9 @@ pipeline {
             steps {
                 script {
                     // Build from Dockerfile in repo root
-                    bat 'docker build -t unix_anand/cloud_based_app_support_automationTool:%BUILD_NUMBER% .'
+                    bat 'docker build -t unix_anand/cloud_based_app_support_automationtool:%BUILD_NUMBER% .'
                     // Tag latest
-                    bat 'docker tag unix_anand/cloud_based_app_support_automationTool:%BUILD_NUMBER% unix_anand/cloud_based_app_support_automationTool:latest'
+                    bat 'docker tag unix_anand/cloud_based_app_support_automationtool:%BUILD_NUMBER% unix_anand/cloud_based_app_support_automationtool:latest'
                 }
             }
         }
@@ -25,7 +25,7 @@ pipeline {
             steps {
                 script {
                     // Run a quick test (e.g., if your app exposes a port)
-                    bat 'docker run --rm unix_anand/cloud_based_app_support_automationTool:%BUILD_NUMBER% echo "App is running!"'
+                    bat 'docker run --rm unix_anand/cloud_based_app_support_automationtool:%BUILD_NUMBER% echo "App is running!"'
                 }
             }
         }
@@ -40,8 +40,8 @@ pipeline {
                //         bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
                //     }
                     // Push
-               //     bat 'docker push unix_anand/cloud_based_app_support_automationTool:%BUILD_NUMBER%'
-               //     bat 'docker push unix_anand/cloud_based_app_support_automationTool:latest'
+               //     bat 'docker push unix_anand/cloud_based_app_support_automationtool:%BUILD_NUMBER%'
+               //     bat 'docker push unix_anand/cloud_based_app_support_automationtool:latest'
                // }
            // }
        // }
